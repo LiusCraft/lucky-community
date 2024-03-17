@@ -1,0 +1,92 @@
+name: build
+
+on:
+    push:
+        tags:
+            - 'v*'
+jobs:
+    get-latest-sources:
+        runs-on: ubuntu-latest
+        steps:
+        - name: Checkout repository
+          uses: actions/checkout@v2
+
+        - name: Get latest tag
+          id: tag
+          run: |
+            git fetch --tags
+            latest_tag=$(git describe --abbrev=0 --tags)
+            git checkout $latest_tag
+
+    build-back:
+        needs: get-latest-sources
+        runs-on: ubuntu-latest
+        steps:
+        - uses: actions/checkout@v3
+    
+        - name: Set up Go
+          uses: actions/setup-go@v4
+          with:
+            go-version: '1.19'
+    
+        - name: tidy
+          run: go mod tidy
+        - name: Test
+          run: go test -v ./...
+        - name: Build
+          run: |
+            mdkir ./dist
+            GOOS=linux go build -o ./dist/community ./cmd/community
+
+    build-front:
+        needs: get-latest-sources
+        runs-on: ubuntu-latest
+        steps:
+        - name: Checkout repository
+          uses: actions/checkout@v2
+
+        - name: Set up Node.js
+          uses: actions/setup-node@v2
+          with:
+            node-version: 18
+
+        - name: Install dependencies
+          run: cd ./web && yarn install
+
+        - name: Build Vue project
+          run: |
+            cd ./web
+            echo "web project root: $(pwd)"
+            yarn build
+            echo "web project root: $(pwd)"
+            mkdir ../dist/web
+            mv -v ./dist/* ../dist/web
+
+    push-tag:
+      needs: [get-latest-sources, build-front, build-back]
+      runs-on: ubuntu-latest
+      steps:
+        - name: Package build
+          run: tar -czvf build.tar.gz ./dist/*
+
+        - name: Update Tag
+          uses: actions/github-script@v4
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          with:
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            script: |
+                const github = require('@actions/github');
+                const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
+
+                const tag = ${{ needs.get-latest-sources.result.latest_tag }};
+                const owner = github.context.repo.owner;
+                const repo = github.context.repo.repo;
+
+                octokit.repos.createOrUpdateReleaseAsset({
+                owner: owner,
+                repo: repo,
+                tag_name: tag,
+                name: 'my-artifact',
+                asset_path: 'build.tar.gz'
+                });
