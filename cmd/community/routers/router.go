@@ -31,6 +31,7 @@ func InitFrontedRouter(r *gin.Engine) {
 	frontend.InitShareRouter(r)
 	frontend.InitFileRouters(r)
 	frontend.InitWelfareRouters(r)
+	frontend.InitWelfareRouters(r)
 	frontend.InitUpdateLogRouters(r)
 	r.Use(middleware.Auth)
 	frontend.InitUserRouters(r)
