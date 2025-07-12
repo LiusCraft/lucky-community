@@ -8,14 +8,14 @@ import (
 )
 
 type AppConfig struct {
-	ServerBind      string          `yaml:"serverBind" default:":8080"`
-	DbConfig        DbConfig        `yaml:"db"`
-	PGDbConfig      PGDbConfig      `yaml:"pgdb"`
-	OssConfig       OssConfig       `yaml:"oss"`
-	EmailConfig     EmailConfig     `yaml:"email"`
+	ServerBind      string      `yaml:"serverBind" default:":8080"`
+	DbConfig        DbConfig    `yaml:"db"`
+	PGDbConfig      PGDbConfig  `yaml:"pgdb"`
+	OssConfig       OssConfig   `yaml:"oss"`
+	EmailConfig     EmailConfig `yaml:"email"`
 	LLMConfig       LLMConfig
 	EmbeddingConfig EmbeddingConfig
-	GitHubConfig    GitHubConfig    `yaml:"github"`
+	GitHubConfig    GitHubConfig `yaml:"github"`
 }
 
 type EmbeddingConfig struct {
@@ -77,13 +77,34 @@ func Init() {
 	if pollCount == 0 {
 		pollCount = 10
 	}
+
+	// 设置数据库默认值，如果环境变量为空
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost:3306"
+	}
+	dbDatabase := os.Getenv("DB_DATABASE")
+	if dbDatabase == "" {
+		dbDatabase = "community"
+	}
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		dbUser = "root"
+	}
+	dbPass := os.Getenv("DB_PASS")
+
+	serverBind := os.Getenv("SERVER_BIND")
+	if serverBind == "" {
+		serverBind = ":8080"
+	}
+
 	appConfig := &AppConfig{
-		ServerBind: os.Getenv("SERVER_BIND"),
+		ServerBind: serverBind,
 		DbConfig: DbConfig{
-			Address:  os.Getenv("DB_HOST"),
-			Database: os.Getenv("DB_DATABASE"),
-			Username: os.Getenv("DB_USER"),
-			Password: os.Getenv("DB_PASS"),
+			Address:  dbHost,
+			Database: dbDatabase,
+			Username: dbUser,
+			Password: dbPass,
 		},
 		PGDbConfig: PGDbConfig{
 			Address:  os.Getenv("PG_DB_HOST"),
