@@ -64,5 +64,6 @@ func InitFrontedRouter(r *gin.Engine) {
 	backend.InitMonitRouters(r)
 	backend.InitMeetingRouters(r)
 	backend.InitActivityRouters(r)
+	backend.InitExpressionRouters(r)
 
 }
