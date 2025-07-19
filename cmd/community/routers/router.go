@@ -30,6 +30,7 @@ func InitFrontedRouter(r *gin.Engine) {
 	InitGitHubAuthRouters(r)
 	frontend.InitShareRouter(r)
 	frontend.InitFileRouters(r)
+	frontend.InitWelfareRouters(r)
 	r.Use(middleware.Auth)
 	frontend.InitUserRouters(r)
 	frontend.InitAiNewsRouter(r)
@@ -64,6 +65,7 @@ func InitFrontedRouter(r *gin.Engine) {
 	backend.InitMonitRouters(r)
 	backend.InitMeetingRouters(r)
 	backend.InitActivityRouters(r)
+	backend.InitWelfareRouters(r)
 	backend.InitExpressionRouters(r)
 
 }
