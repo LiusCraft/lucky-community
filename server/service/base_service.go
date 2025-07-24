@@ -14,4 +14,11 @@ var (
 	memberDao        dao.MemberDao
 	aiNewsDao        dao.AiNewsDao
 	crawlerConfigDao dao.CrawlerConfigDao
+	// 积分系统相关DAO实例
+	userPointsDao    dao.UserPointsDao
+	pointRecordDao   dao.PointRecordDao
+	inviteRelationDao dao.InviteRelationDao
+	exchangeRequestDao dao.ExchangeRequestDao
+	pointProductDao  dao.PointProductDao
+	userInviteCodeDao dao.UserInviteCodeDao
 )
