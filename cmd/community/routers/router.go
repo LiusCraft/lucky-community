@@ -48,6 +48,10 @@ func InitFrontedRouter(r *gin.Engine) {
 	frontend.InitNoteRouters(r)
 	frontend.InitMeetingRouters(r)
 	frontend.InitKnowledgeRouters(r)
+	// 积分系统路由
+	frontend.InitPointsRouters(r)
+	frontend.InitInviteRouters(r)
+	frontend.InitExchangeRouters(r)
 
 	r.Use(middleware.AdminAuth)
 	backend.InitTypeRouters(r)
@@ -69,5 +73,9 @@ func InitFrontedRouter(r *gin.Engine) {
 	backend.InitWelfareRouters(r)
 	backend.InitExpressionRouters(r)
 	backend.InitAdminUpdateLogRouters(r)
+	// 积分系统管理员路由
+	backend.InitAdminPointsRouters(r)
+	backend.InitAdminExchangeRouters(r)
+	backend.InitAdminInviteRouters(r)
 
 }
