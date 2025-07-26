@@ -276,6 +276,11 @@ func GitHubActivate(c *gin.Context) {
 
 		log.Info("GitHub新用户注册成功: " + newUser.Name)
 
+		// 处理邀请关系和积分奖励（GitHub注册）
+		if req.InviteCode != "" {
+			processUserInviteRelation(req.InviteCode, newUser.Name, newUser.ID)
+		}
+
 		// 设置认证 cookie
 		c.SetCookie(middleware.AUTHORIZATION, token, int(constant.Token_TTl.Seconds()), "/", c.Request.Host, false, true)
 

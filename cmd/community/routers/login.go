@@ -201,12 +201,20 @@ func processUserInviteRelation(userInviteCode, userName string, inviteeID int) {
 // awardInviterPoints 发放邀请人积分奖励
 func awardInviterPoints(inviterID int, inviteeName string) {
 	var pointsService services.PointsService
+	var pointConfigService services.PointConfigService
+
+	// 从配置中获取邀请奖励积分数量
+	rewardPoints, err := pointConfigService.GetInviteRewardPoints()
+	if err != nil {
+		log.Warnf("获取邀请奖励积分配置失败，使用默认值10，错误: %v", err)
+		rewardPoints = 10
+	}
 
 	description := fmt.Sprintf("邀请用户注册奖励，被邀请用户: %s", inviteeName)
-	if err := pointsService.EarnPoints(inviterID, 10, model.SourceTypeInvite, description); err != nil {
+	if err := pointsService.EarnPoints(inviterID, rewardPoints, model.SourceTypeInvite, description); err != nil {
 		log.Warnf("发放邀请人积分失败，邀请人ID: %d, 错误: %v", inviterID, err)
 		return
 	}
 
-	log.Infof("成功发放邀请人积分，邀请人ID: %d, 积分: 10", inviterID)
+	log.Infof("成功发放邀请人积分，邀请人ID: %d, 积分: %d", inviterID, rewardPoints)
 }
