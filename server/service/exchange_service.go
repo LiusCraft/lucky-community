@@ -288,7 +288,7 @@ func (s *ExchangeService) ValidateExchangeOperation(userID int, productID int64,
 // GetAllProducts 获取所有积分商品（包括已禁用的）
 func (s *ExchangeService) GetAllProducts() ([]model.PointProduct, error) {
 	pointProductDao := s.getPointProductDao()
-	return pointProductDao.GetActiveProducts() // 暂时使用这个方法
+	return pointProductDao.GetAllProducts()
 }
 
 // GetAllExchangeRequests 获取所有兑换申请（管理员使用）
@@ -410,12 +410,12 @@ func (s *ExchangeService) UpdateProduct(productID int64, name, description strin
 	return pointProductDao.UpdateProductByID(productID, updates)
 }
 
-// DeleteProduct 删除积分商品（软删除）
+// DeleteProduct 删除积分商品（物理删除）
 func (s *ExchangeService) DeleteProduct(productID int64) error {
 	if productID <= 0 {
 		return fmt.Errorf("无效的商品ID")
 	}
 	
 	pointProductDao := s.getPointProductDao()
-	return pointProductDao.UpdateProductStatus(productID, model.ProductStatusInactive)
+	return pointProductDao.DeleteProduct(productID)
 }

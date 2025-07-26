@@ -11,8 +11,9 @@ type ExchangeRequestDao struct{}
 // ExchangeRequestWithUser 包含用户信息的兑换申请
 type ExchangeRequestWithUser struct {
 	model.ExchangeRequest
-	UserName    string `json:"user_name" gorm:"column:user_name"`
-	ProductName string `json:"product_name" gorm:"column:product_name"`
+	UserName       string `json:"user_name" gorm:"column:user_name"`
+	ProductName    string `json:"product_name" gorm:"column:product_name"`
+	ProductImageURL string `json:"product_image_url" gorm:"column:product_image_url"`
 }
 
 // CreateExchangeRequest 创建兑换申请
@@ -59,7 +60,7 @@ func (d *ExchangeRequestDao) GetUserExchangeRequests(userID int, page, pageSize 
 	}
 
 	query := model.ExchangeRequestModel().
-		Select("exchange_requests.*, point_products.name as product_name").
+		Select("exchange_requests.*, point_products.name as product_name, point_products.image_url as product_image_url").
 		Joins("LEFT JOIN point_products ON exchange_requests.product_id = point_products.id").
 		Where("exchange_requests.user_id = ?", userID)
 	
@@ -100,7 +101,7 @@ func (d *ExchangeRequestDao) GetExchangeRequestsWithPagination(page, pageSize in
 	}
 
 	query := model.ExchangeRequestModel().
-		Select("exchange_requests.*, users.name as user_name, point_products.name as product_name").
+		Select("exchange_requests.*, users.name as user_name, point_products.name as product_name, point_products.image_url as product_image_url").
 		Joins("LEFT JOIN users ON exchange_requests.user_id = users.id").
 		Joins("LEFT JOIN point_products ON exchange_requests.product_id = point_products.id")
 	

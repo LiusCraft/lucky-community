@@ -23,6 +23,20 @@ func (d *PointProductDao) GetActiveProducts() ([]model.PointProduct, error) {
 	return products, nil
 }
 
+// GetAllProducts 获取所有积分商品（包括已禁用的）
+func (d *PointProductDao) GetAllProducts() ([]model.PointProduct, error) {
+	var products []model.PointProduct
+	err := model.PointProductModel().
+		Order("sort_order DESC, created_at DESC").
+		Find(&products).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("查询积分商品失败: %v", err)
+	}
+
+	return products, nil
+}
+
 // GetProductByID 根据ID获取积分商品
 func (d *PointProductDao) GetProductByID(id int64) (*model.PointProduct, error) {
 	var product model.PointProduct
