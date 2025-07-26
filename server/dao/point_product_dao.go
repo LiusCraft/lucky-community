@@ -154,12 +154,17 @@ func (d *PointProductDao) UpdateProductStock(productID int64, quantity int) erro
 	}
 
 	// 扣减库存
-	err := model.PointProductModel().
+	result := model.PointProductModel().
 		Where("id = ? AND stock >= ?", productID, quantity).
-		Update("stock", gorm.Expr("stock - ?", quantity)).Error
+		Update("stock", gorm.Expr("stock - ?", quantity))
 
-	if err != nil {
-		return fmt.Errorf("更新商品库存失败: %v", err)
+	if result.Error != nil {
+		return fmt.Errorf("更新商品库存失败: %v", result.Error)
+	}
+
+	// 如果没有行被更新，说明库存不足或并发竞争失败
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("库存不足")
 	}
 
 	return nil
@@ -184,12 +189,17 @@ func (d *PointProductDao) UpdateProductStockWithTransaction(tx *gorm.DB, product
 	}
 
 	// 扣减库存
-	err := tx.Model(&model.PointProduct{}).
+	result := tx.Model(&model.PointProduct{}).
 		Where("id = ? AND stock >= ?", productID, quantity).
-		Update("stock", gorm.Expr("stock - ?", quantity)).Error
+		Update("stock", gorm.Expr("stock - ?", quantity))
 
-	if err != nil {
-		return fmt.Errorf("更新商品库存失败: %v", err)
+	if result.Error != nil {
+		return fmt.Errorf("更新商品库存失败: %v", result.Error)
+	}
+
+	// 如果没有行被更新，说明库存不足或并发竞争失败
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("库存不足")
 	}
 
 	return nil

@@ -89,17 +89,27 @@ func (d *UserPointsDao) DeductPointsWithTransaction(tx *gorm.DB, userID int, poi
 		return nil, fmt.Errorf("查询用户积分失败: %v", err)
 	}
 	
-	// 检查积分是否充足
-	if userPoints.AvailablePoints < points {
-		return nil, fmt.Errorf("积分不足：需要%d积分，当前可用%d积分", points, userPoints.AvailablePoints)
+	// 使用原子条件更新扣减积分，确保并发安全
+	result := tx.Model(&model.UserPoints{}).
+		Where("user_id = ? AND available_points >= ?", userID, points).
+		Updates(map[string]interface{}{
+			"available_points": gorm.Expr("available_points - ?", points),
+			"total_spent":      gorm.Expr("total_spent + ?", points),
+		})
+	
+	if result.Error != nil {
+		return nil, fmt.Errorf("扣减用户积分失败: %v", result.Error)
 	}
 	
-	// 扣减积分
-	userPoints.AvailablePoints -= points
-	userPoints.TotalSpent += points
+	// 如果没有行被更新，说明积分不足或并发竞争失败
+	if result.RowsAffected == 0 {
+		return nil, fmt.Errorf("积分不足")
+	}
 	
-	if updateErr := tx.Save(&userPoints).Error; updateErr != nil {
-		return nil, fmt.Errorf("扣减用户积分失败: %v", updateErr)
+	// 重新查询更新后的用户积分
+	err = tx.Model(&model.UserPoints{}).Where("user_id = ?", userID).First(&userPoints).Error
+	if err != nil {
+		return nil, fmt.Errorf("查询更新后积分失败: %v", err)
 	}
 	
 	return &userPoints, nil
