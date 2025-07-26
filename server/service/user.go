@@ -142,7 +142,7 @@ func Register(account, pswd, name, inviteCode string) (int, error) {
 
 	// query codeDao
 	if !codeDao.Exist(inviteCode) {
-		return 0, errors.New("验证码不存在")
+		return 0, errors.New("注册码不存在")
 	}
 
 	// 查询账户
