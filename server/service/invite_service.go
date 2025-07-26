@@ -23,6 +23,11 @@ func (s *InviteService) getPointsService() *PointsService {
 	return &PointsService{}
 }
 
+// getPointConfigService 获取积分配置服务实例
+func (s *InviteService) getPointConfigService() *PointConfigService {
+	return &PointConfigService{}
+}
+
 // GetUserInviteCode 获取用户的邀请码
 func (s *InviteService) GetUserInviteCode(userID int) (*model.UserInviteCode, error) {
 	if userID <= 0 {
@@ -99,13 +104,9 @@ func (s *InviteService) CreateInviteRelation(inviterID, inviteeID int, inviteCod
 }
 
 // ProcessInviteReward 处理邀请奖励（当被邀请用户付费成功时调用）
-func (s *InviteService) ProcessInviteReward(inviteeID int, rewardPoints int) error {
+func (s *InviteService) ProcessInviteReward(inviteeID int) error {
 	if inviteeID <= 0 {
 		return fmt.Errorf("无效的被邀请用户ID")
-	}
-
-	if rewardPoints <= 0 {
-		return fmt.Errorf("奖励积分必须大于0")
 	}
 
 	// 查找邀请关系
@@ -117,6 +118,18 @@ func (s *InviteService) ProcessInviteReward(inviteeID int, rewardPoints int) err
 
 	if relation == nil {
 		// 用户没有邀请关系，跳过奖励处理
+		return nil
+	}
+
+	// 从配置获取邀请奖励积分
+	pointConfigService := s.getPointConfigService()
+	rewardPoints, err := pointConfigService.GetInviteRewardPoints()
+	if err != nil {
+		return fmt.Errorf("获取邀请奖励积分配置失败: %v", err)
+	}
+
+	if rewardPoints <= 0 {
+		// 如果配置的奖励积分为0或负数，跳过奖励处理
 		return nil
 	}
 
