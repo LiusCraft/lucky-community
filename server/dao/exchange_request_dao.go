@@ -49,8 +49,8 @@ func (d *ExchangeRequestDao) GetExchangeRequestByID(id int64) (*model.ExchangeRe
 	return &request, nil
 }
 
-// GetUserExchangeRequests 获取用户的兑换申请列表
-func (d *ExchangeRequestDao) GetUserExchangeRequests(userID int, page, pageSize int, status string) ([]model.ExchangeRequest, int64, error) {
+// GetUserExchangeRequests 获取用户的兑换申请列表（包含商品名称）
+func (d *ExchangeRequestDao) GetUserExchangeRequests(userID int, page, pageSize int, status string) ([]ExchangeRequestWithUser, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -58,15 +58,18 @@ func (d *ExchangeRequestDao) GetUserExchangeRequests(userID int, page, pageSize 
 		pageSize = 20
 	}
 
-	query := model.ExchangeRequestModel().Where("user_id = ?", userID)
+	query := model.ExchangeRequestModel().
+		Select("exchange_requests.*, point_products.name as product_name").
+		Joins("LEFT JOIN point_products ON exchange_requests.product_id = point_products.id").
+		Where("exchange_requests.user_id = ?", userID)
 	
 	// 根据状态筛选
 	if status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("exchange_requests.status = ?", status)
 	}
 
 	var total int64
-	var requests []model.ExchangeRequest
+	var requests []ExchangeRequestWithUser
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
@@ -75,7 +78,7 @@ func (d *ExchangeRequestDao) GetUserExchangeRequests(userID int, page, pageSize 
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	err := query.Order("created_at DESC").
+	err := query.Order("exchange_requests.created_at DESC").
 		Offset(offset).
 		Limit(pageSize).
 		Find(&requests).Error

@@ -133,8 +133,8 @@ func (s *ExchangeService) CreateExchangeRequest(userID int, productID int64, qua
 	return exchangeRequest, nil
 }
 
-// GetUserExchangeRequests 获取用户的兑换申请列表
-func (s *ExchangeService) GetUserExchangeRequests(userID int, page, pageSize int, status string) ([]model.ExchangeRequest, int64, error) {
+// GetUserExchangeRequests 获取用户的兑换申请列表（包含商品名称）
+func (s *ExchangeService) GetUserExchangeRequests(userID int, page, pageSize int, status string) ([]dao.ExchangeRequestWithUser, int64, error) {
 	if userID <= 0 {
 		return nil, 0, fmt.Errorf("无效的用户ID")
 	}
