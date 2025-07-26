@@ -8,6 +8,13 @@ import (
 
 type InviteRelationDao struct{}
 
+// InviteRelationWithUser 包含用户信息的邀请关系
+type InviteRelationWithUser struct {
+	model.InviteRelation
+	InviterName string `json:"inviter_name" gorm:"column:inviter_name"`
+	InviteeName string `json:"invitee_name" gorm:"column:invitee_name"`
+}
+
 // CreateInviteRelation 创建邀请关系
 func (d *InviteRelationDao) CreateInviteRelation(relation *model.InviteRelation) error {
 	err := model.InviteRelationModel().Create(relation).Error
@@ -121,7 +128,8 @@ func (d *InviteRelationDao) GetInviteStatistics() (map[string]interface{}, error
 	}
 
 	result := map[string]interface{}{
-		"total_invite_relations": stats.TotalInviteRelations,
+		"total_invites":          stats.TotalInviteRelations,  // 前端期望的字段名
+		"total_invite_relations": stats.TotalInviteRelations,  // 保持兼容性
 		"total_inviters":         stats.TotalInviters,
 		"average_invites_per_inviter": func() float64 {
 			if stats.TotalInviters > 0 {
@@ -218,4 +226,45 @@ func (d *InviteRelationDao) DeleteInviteRelation(id int64) error {
 		return fmt.Errorf("删除邀请关系失败: %v", err)
 	}
 	return nil
+}
+
+// GetInviteRelationsWithUserInfo 获取包含用户昵称的邀请关系（管理员用）
+func (d *InviteRelationDao) GetInviteRelationsWithUserInfo(page, pageSize, inviterID, inviteeID int) ([]InviteRelationWithUser, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	
+	query := model.InviteRelationModel().
+		Select("invite_relations.*, inviter.name as inviter_name, invitee.name as invitee_name").
+		Joins("LEFT JOIN users as inviter ON invite_relations.inviter_id = inviter.id").
+		Joins("LEFT JOIN users as invitee ON invite_relations.invitee_id = invitee.id")
+	
+	// 按邀请者ID筛选
+	if inviterID > 0 {
+		query = query.Where("invite_relations.inviter_id = ?", inviterID)
+	}
+	
+	// 按被邀请者ID筛选
+	if inviteeID > 0 {
+		query = query.Where("invite_relations.invitee_id = ?", inviteeID)
+	}
+	
+	var total int64
+	var relations []InviteRelationWithUser
+	
+	// 获取总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("查询邀请关系总数失败: %v", err)
+	}
+	
+	// 分页查询
+	offset := (page - 1) * pageSize
+	if err := query.Order("invite_relations.created_at DESC").Offset(offset).Limit(pageSize).Find(&relations).Error; err != nil {
+		return nil, 0, fmt.Errorf("查询邀请关系列表失败: %v", err)
+	}
+	
+	return relations, total, nil
 }

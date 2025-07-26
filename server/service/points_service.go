@@ -339,7 +339,6 @@ func (s *PointsService) BatchEarnPoints(operations []struct {
 // GetSystemPointsStatistics 获取积分系统统计数据
 func (s *PointsService) GetSystemPointsStatistics(dateStart, dateEnd string) (map[string]interface{}, error) {
 	pointRecordDao := s.getPointRecordDao()
-	userPointsDao := s.getUserPointsDao()
 	
 	// 获取总积分发放和消费
 	totalEarn, err := pointRecordDao.GetPointsSumByType("earn", dateStart, dateEnd)
@@ -352,38 +351,16 @@ func (s *PointsService) GetSystemPointsStatistics(dateStart, dateEnd string) (ma
 		return nil, fmt.Errorf("获取积分消费统计失败: %v", err)
 	}
 	
-	// 获取活跃用户数
-	activeUsers, err := pointRecordDao.GetActiveUsersCount(dateStart, dateEnd)
-	if err != nil {
-		return nil, fmt.Errorf("获取活跃用户数失败: %v", err)
-	}
-	
-	// 获取用户总数
-	totalUsers, err := userPointsDao.GetTotalUsersCount()
-	if err != nil {
-		return nil, fmt.Errorf("获取用户总数失败: %v", err)
-	}
-	
-	// 获取平均积分余额
-	averageBalance, err := userPointsDao.GetAveragePointsBalance()
-	if err != nil {
-		return nil, fmt.Errorf("获取平均积分余额失败: %v", err)
-	}
-	
 	statistics := map[string]interface{}{
-		"total_earn":       totalEarn,
-		"total_spend":      totalSpend,
-		"current_balance":  totalEarn - totalSpend,
-		"active_users":     activeUsers,
-		"total_users":      totalUsers,
-		"average_balance":  averageBalance,
+		"total_earn":  totalEarn,
+		"total_spend": totalSpend,
 	}
 	
 	return statistics, nil
 }
 
 // GetAllPointRecords 获取所有积分记录（管理员使用）
-func (s *PointsService) GetAllPointRecords(page, pageSize, userID int, recordType, dateStart, dateEnd string) ([]model.PointRecord, int64, error) {
+func (s *PointsService) GetAllPointRecords(page, pageSize, userID int, recordType, dateStart, dateEnd string) ([]dao.PointRecordWithUser, int64, error) {
 	if page <= 0 {
 		page = 1
 	}

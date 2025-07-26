@@ -178,7 +178,7 @@ func (s *ExchangeService) ProcessExchangeRequest(requestID int64) error {
 
 
 // GetExchangeRequestsWithPagination 分页获取所有兑换申请（管理员用）
-func (s *ExchangeService) GetExchangeRequestsWithPagination(page, pageSize int, status string) ([]model.ExchangeRequest, int64, error) {
+func (s *ExchangeService) GetExchangeRequestsWithPagination(page, pageSize int, status string) ([]dao.ExchangeRequestWithUser, int64, error) {
 	exchangeRequestDao := s.getExchangeRequestDao()
 	return exchangeRequestDao.GetExchangeRequestsWithPagination(page, pageSize, status)
 }
@@ -292,9 +292,9 @@ func (s *ExchangeService) GetAllProducts() ([]model.PointProduct, error) {
 }
 
 // GetAllExchangeRequests 获取所有兑换申请（管理员使用）
-func (s *ExchangeService) GetAllExchangeRequests(page, pageSize, userID int, status string) ([]model.ExchangeRequest, int64, error) {
+func (s *ExchangeService) GetAllExchangeRequests(page, pageSize int, status string) ([]dao.ExchangeRequestWithUser, int64, error) {
 	exchangeRequestDao := s.getExchangeRequestDao()
-	return exchangeRequestDao.GetUserExchangeRequests(userID, page, pageSize, status) // 暂时使用这个方法
+	return exchangeRequestDao.GetExchangeRequestsWithPagination(page, pageSize, status)
 }
 
 // ProcessExchangeRequestStatus 处理兑换申请（管理员操作）
