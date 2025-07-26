@@ -167,7 +167,8 @@ func (s *InviteService) GetInviterStatistics(inviterID int) (map[string]interfac
 	
 	result := map[string]interface{}{
 		"invite_code":                 inviteCodeInfo.InviteCode,
-		"invite_points_from_records":  invitePoints, // 从积分记录中统计的邀请积分
+		"earned_points":               invitePoints, // 前端期望的字段名
+		"invite_points_from_records":  invitePoints, // 兼容旧字段名
 	}
 	
 	// 合并邀请关系统计
@@ -178,14 +179,14 @@ func (s *InviteService) GetInviterStatistics(inviterID int) (map[string]interfac
 	return result, nil
 }
 
-// GetInviteRelationsByInviter 获取邀请人的邀请关系列表
-func (s *InviteService) GetInviteRelationsByInviter(inviterID int, page, pageSize int) ([]model.InviteRelation, int64, error) {
+// GetInviteRelationsByInviter 获取邀请人的邀请关系列表（带用户昵称）
+func (s *InviteService) GetInviteRelationsByInviter(inviterID int, page, pageSize int) ([]dao.InviteRelationWithUser, int64, error) {
 	if inviterID <= 0 {
 		return nil, 0, fmt.Errorf("无效的邀请人ID")
 	}
 	
 	inviteRelationDao := s.getInviteRelationDao()
-	return inviteRelationDao.GetInviteRelationsByInviter(inviterID, page, pageSize)
+	return inviteRelationDao.GetInviteRelationsWithUserInfo(page, pageSize, inviterID, 0)
 }
 
 
