@@ -371,3 +371,21 @@ func (s *PointsService) GetAllPointRecords(page, pageSize, userID int, recordTyp
 	pointRecordDao := s.getPointRecordDao()
 	return pointRecordDao.GetAllPointRecords(page, pageSize, userID, recordType, dateStart, dateEnd)
 }
+
+// ManualGrantPoints 管理员手动发放积分
+func (s *PointsService) ManualGrantPoints(userID int, points int, description string) error {
+	if userID <= 0 {
+		return fmt.Errorf("无效的用户ID")
+	}
+	
+	if points <= 0 {
+		return fmt.Errorf("发放积分数量必须大于0")
+	}
+	
+	if description == "" {
+		return fmt.Errorf("发放原因不能为空")
+	}
+	
+	// 使用手动发放类型
+	return s.EarnPoints(userID, points, model.SourceTypeManual, description)
+}
