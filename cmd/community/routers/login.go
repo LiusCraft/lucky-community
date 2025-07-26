@@ -1,6 +1,8 @@
 package routers
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"xhyovo.cn/community/cmd/community/middleware"
@@ -14,17 +16,18 @@ import (
 )
 
 type registerForm struct {
-	Code     string `binding:"required" form:"code" msg:"code不能为空" `
-	Account  string `binding:"required,email" form:"account" msg:"邮箱格式不正确"`
-	Name     string `binding:"required" form:"name" msg:"用户名不能为空"`
-	Password string `binding:"required" form:"password" msg:"密码不能为空"`
+	Code           string `binding:"required" form:"code" msg:"code不能为空" `
+	Account        string `binding:"required,email" form:"account" msg:"邮箱格式不正确"`
+	Name           string `binding:"required" form:"name" msg:"用户名不能为空"`
+	Password       string `binding:"required" form:"password" msg:"密码不能为空"`
+	UserInviteCode string `form:"user_invite_code" msg:"用户邀请码"` // 用户邀请码，可选
 }
 
 func InitLoginRegisterRouters(ctx *gin.Engine) {
 	group := ctx.Group("/community")
 	group.POST("/login", Login)
 	group.POST("/register", Register)
-	
+
 	// 添加登录页面路由（支持SSO参数）
 	ctx.GET("/login", LoginPage)
 }
@@ -92,12 +95,6 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	if err != nil {
-		log.Warnf("账户: %s 注册失败,获取加密密码错误,err %s", form.Account, err.Error())
-		result.Err(err.Error()).Json(c)
-		return
-	}
-
 	id, err := services.Register(form.Account, form.Password, form.Name, form.Code)
 	if err != nil {
 		loginLog.State = err.Error()
@@ -105,6 +102,10 @@ func Register(c *gin.Context) {
 		result.Err(err.Error()).Json(c)
 		return
 	}
+
+	// 处理用户邀请关系
+	processUserInviteRelation(form.UserInviteCode, form.Name, id)
+
 	var d services.Draft
 	d.InitDraft(id)
 
@@ -127,13 +128,13 @@ func LoginPage(c *gin.Context) {
 	sso := c.Query("sso")
 	appKey := c.Query("app_key")
 	redirectUrl := c.Query("redirect_url")
-	
+
 	// 检查用户是否已经登录
 	token := c.GetHeader("Authorization")
 	if len(token) == 0 {
 		token, _ = c.Cookie("Authorization")
 	}
-	
+
 	claims, err := middleware.ParseToken(token)
 	if err == nil && claims.ID > 0 {
 		// 用户已登录
@@ -142,21 +143,21 @@ func LoginPage(c *gin.Context) {
 			handleSsoFlow(c, appKey, redirectUrl)
 			return
 		}
-		
+
 		// 普通登录场景：用户已登录，重定向到首页
 		c.Redirect(302, "/")
 		return
 	}
-	
+
 	// 用户未登录，显示登录页面
 	if sso == "1" {
 		// SSO登录页面，可以传递SSO参数到前端
 		c.JSON(200, map[string]interface{}{
-			"needLogin": true,
-			"sso":       true,
-			"appKey":    appKey,
+			"needLogin":   true,
+			"sso":         true,
+			"appKey":      appKey,
 			"redirectUrl": redirectUrl,
-			"message":   "请登录以继续SSO认证",
+			"message":     "请登录以继续SSO认证",
 		})
 	} else {
 		// 普通登录页面
@@ -166,4 +167,46 @@ func LoginPage(c *gin.Context) {
 			"message":   "请登录",
 		})
 	}
+}
+
+// processUserInviteRelation 处理用户邀请关系和积分奖励
+func processUserInviteRelation(userInviteCode, userName string, inviteeID int) {
+	// 如果没有邀请码，直接返回
+	if userInviteCode == "" {
+		return
+	}
+
+	// 验证邀请码并获取邀请人信息
+	var inviteService services.InviteService
+	inviterInfo, err := inviteService.ValidateInviteCode(userInviteCode)
+	if err != nil {
+		log.Warnf("验证用户邀请码失败，邀请码: %s, 错误: %v", userInviteCode, err)
+		return
+	}
+
+	// 创建邀请关系
+	if err := inviteService.CreateInviteRelation(inviterInfo.UserID, inviteeID, userInviteCode); err != nil {
+		log.Warnf("创建邀请关系失败，邀请人ID: %d, 被邀请人ID: %d, 邀请码: %s, 错误: %v",
+			inviterInfo.UserID, inviteeID, userInviteCode, err)
+		return
+	}
+
+	log.Infof("成功创建邀请关系，邀请人ID: %d, 被邀请人ID: %d, 邀请码: %s",
+		inviterInfo.UserID, inviteeID, userInviteCode)
+
+	// 发放邀请积分奖励
+	awardInviterPoints(inviterInfo.UserID, userName)
+}
+
+// awardInviterPoints 发放邀请人积分奖励
+func awardInviterPoints(inviterID int, inviteeName string) {
+	var pointsService services.PointsService
+
+	description := fmt.Sprintf("邀请用户注册奖励，被邀请用户: %s", inviteeName)
+	if err := pointsService.EarnPoints(inviterID, 10, model.SourceTypeInvite, description); err != nil {
+		log.Warnf("发放邀请人积分失败，邀请人ID: %d, 错误: %v", inviterID, err)
+		return
+	}
+
+	log.Infof("成功发放邀请人积分，邀请人ID: %d, 积分: 10", inviterID)
 }
