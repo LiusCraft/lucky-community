@@ -284,8 +284,14 @@ func (d *PointRecordDao) GetActiveUsersCount(dateStart, dateEnd string) (int64, 
 	return count, nil
 }
 
+// PointRecordWithUser 包含用户信息的积分记录
+type PointRecordWithUser struct {
+	model.PointRecord
+	UserName string `json:"user_name" gorm:"column:user_name"`
+}
+
 // GetAllPointRecords 获取所有积分记录（管理员使用）
-func (d *PointRecordDao) GetAllPointRecords(page, pageSize, userID int, recordType, dateStart, dateEnd string) ([]model.PointRecord, int64, error) {
+func (d *PointRecordDao) GetAllPointRecords(page, pageSize, userID int, recordType, dateStart, dateEnd string) ([]PointRecordWithUser, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -293,28 +299,30 @@ func (d *PointRecordDao) GetAllPointRecords(page, pageSize, userID int, recordTy
 		pageSize = 20
 	}
 	
-	query := model.PointRecordModel()
+	query := model.PointRecordModel().
+		Select("point_records.*, users.name as user_name").
+		Joins("LEFT JOIN users ON point_records.user_id = users.id")
 	
 	// 按用户ID筛选
 	if userID > 0 {
-		query = query.Where("user_id = ?", userID)
+		query = query.Where("point_records.user_id = ?", userID)
 	}
 	
 	// 按类型筛选
 	if recordType != "" && (recordType == model.PointTypeEarn || recordType == model.PointTypeSpend) {
-		query = query.Where("type = ?", recordType)
+		query = query.Where("point_records.type = ?", recordType)
 	}
 	
 	// 按日期范围筛选
 	if dateStart != "" {
-		query = query.Where("created_at >= ?", dateStart)
+		query = query.Where("point_records.created_at >= ?", dateStart)
 	}
 	if dateEnd != "" {
-		query = query.Where("created_at <= ?", dateEnd + " 23:59:59")
+		query = query.Where("point_records.created_at <= ?", dateEnd + " 23:59:59")
 	}
 	
 	var total int64
-	var records []model.PointRecord
+	var records []PointRecordWithUser
 	
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
@@ -323,7 +331,7 @@ func (d *PointRecordDao) GetAllPointRecords(page, pageSize, userID int, recordTy
 	
 	// 获取列表数据（按创建时间降序）
 	offset := (page - 1) * pageSize
-	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&records).Error; err != nil {
+	if err := query.Order("point_records.created_at DESC").Offset(offset).Limit(pageSize).Find(&records).Error; err != nil {
 		return nil, 0, fmt.Errorf("查询积分记录列表失败: %v", err)
 	}
 	

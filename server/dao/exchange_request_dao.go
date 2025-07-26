@@ -8,6 +8,13 @@ import (
 
 type ExchangeRequestDao struct{}
 
+// ExchangeRequestWithUser 包含用户信息的兑换申请
+type ExchangeRequestWithUser struct {
+	model.ExchangeRequest
+	UserName    string `json:"user_name" gorm:"column:user_name"`
+	ProductName string `json:"product_name" gorm:"column:product_name"`
+}
+
 // CreateExchangeRequest 创建兑换申请
 func (d *ExchangeRequestDao) CreateExchangeRequest(request *model.ExchangeRequest) error {
 	err := model.ExchangeRequestModel().Create(request).Error
@@ -81,7 +88,7 @@ func (d *ExchangeRequestDao) GetUserExchangeRequests(userID int, page, pageSize 
 }
 
 // GetExchangeRequestsWithPagination 分页获取所有兑换申请（管理员用）
-func (d *ExchangeRequestDao) GetExchangeRequestsWithPagination(page, pageSize int, status string) ([]model.ExchangeRequest, int64, error) {
+func (d *ExchangeRequestDao) GetExchangeRequestsWithPagination(page, pageSize int, status string) ([]ExchangeRequestWithUser, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -89,27 +96,27 @@ func (d *ExchangeRequestDao) GetExchangeRequestsWithPagination(page, pageSize in
 		pageSize = 20
 	}
 
-	query := model.ExchangeRequestModel()
+	query := model.ExchangeRequestModel().
+		Select("exchange_requests.*, users.name as user_name, point_products.name as product_name").
+		Joins("LEFT JOIN users ON exchange_requests.user_id = users.id").
+		Joins("LEFT JOIN point_products ON exchange_requests.product_id = point_products.id")
 	
 	// 根据状态筛选
 	if status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("exchange_requests.status = ?", status)
 	}
 
 	var total int64
-	var requests []model.ExchangeRequest
+	var requests []ExchangeRequestWithUser
 
 	// 获取总数
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("查询兑换申请总数失败: %v", err)
 	}
 
-	// 分页查询，预加载关联数据
+	// 分页查询
 	offset := (page - 1) * pageSize
-	err := query.
-		Preload("Product").  // 预加载商品信息
-		Preload("User").     // 预加载用户信息
-		Order("created_at DESC").
+	err := query.Order("exchange_requests.created_at DESC").
 		Offset(offset).
 		Limit(pageSize).
 		Find(&requests).Error

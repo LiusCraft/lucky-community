@@ -33,6 +33,16 @@ func (s *InviteService) GetUserInviteCode(userID int) (*model.UserInviteCode, er
 	return userInviteCodeDao.GetUserInviteCode(userID)
 }
 
+// GetOrCreateUserInviteCode 获取用户邀请码，如果不存在则创建
+func (s *InviteService) GetOrCreateUserInviteCode(userID int) (*model.UserInviteCode, error) {
+	if userID <= 0 {
+		return nil, fmt.Errorf("无效的用户ID")
+	}
+	
+	userInviteCodeDao := s.getUserInviteCodeDao()
+	return userInviteCodeDao.GetUserInviteCode(userID)
+}
+
 // ValidateInviteCode 验证邀请码是否有效
 func (s *InviteService) ValidateInviteCode(inviteCode string) (*model.UserInviteCode, error) {
 	if inviteCode == "" {
