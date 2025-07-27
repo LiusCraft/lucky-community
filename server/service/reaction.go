@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"xhyovo.cn/community/pkg/log"
 	"xhyovo.cn/community/server/dao"
@@ -133,4 +134,170 @@ func (s *ReactionService) GetAllExpressionTypes() ([]model.ExpressionType, error
 	
 	log.Infof("获取表情类型成功，返回 %d 个表情类型", len(types))
 	return types, nil
+}
+
+// PageExpressionTypes 分页获取表情类型（管理后台用）
+func (s *ReactionService) PageExpressionTypes(page, limit int) ([]model.ExpressionType, int64, error) {
+	log.Infof("分页获取表情类型，页码: %d, 每页数量: %d", page, limit)
+	
+	var types []model.ExpressionType
+	var total int64
+	
+	db := model.ReactionDB().Model(&model.ExpressionType{})
+	
+	// 获取总数
+	err := db.Count(&total).Error
+	if err != nil {
+		log.Errorf("获取表情类型总数失败: %v", err)
+		return nil, 0, err
+	}
+	
+	// 分页查询
+	offset := (page - 1) * limit
+	err = db.Order("sort_order ASC, id ASC").
+		Offset(offset).
+		Limit(limit).
+		Find(&types).Error
+	
+	if err != nil {
+		log.Errorf("分页获取表情类型失败: %v", err)
+		return nil, 0, err
+	}
+	
+	log.Infof("分页获取表情类型成功，返回 %d 个表情类型，总数: %d", len(types), total)
+	return types, total, nil
+}
+
+// CreateExpressionType 创建表情类型
+func (s *ReactionService) CreateExpressionType(expression *model.ExpressionType) (*model.ExpressionType, error) {
+	log.Infof("创建表情类型: %s", expression.Name)
+	
+	// 检查code是否已存在
+	var count int64
+	err := model.ReactionDB().Model(&model.ExpressionType{}).
+		Where("code = ?", expression.Code).
+		Count(&count).Error
+	
+	if err != nil {
+		log.Errorf("检查表情代码是否存在失败: %v", err)
+		return nil, err
+	}
+	
+	if count > 0 {
+		log.Warnf("表情代码已存在: %s", expression.Code)
+		return nil, fmt.Errorf("表情代码已存在")
+	}
+	
+	err = model.ReactionDB().Create(expression).Error
+	if err != nil {
+		log.Errorf("创建表情类型失败: %v", err)
+		return nil, err
+	}
+	
+	log.Infof("创建表情类型成功: %s", expression.Name)
+	return expression, nil
+}
+
+// UpdateExpressionType 更新表情类型
+func (s *ReactionService) UpdateExpressionType(expression *model.ExpressionType) error {
+	log.Infof("更新表情类型: %d", expression.ID)
+	
+	// 检查表情是否存在
+	var existing model.ExpressionType
+	err := model.ReactionDB().First(&existing, expression.ID).Error
+	if err != nil {
+		log.Errorf("查找表情类型失败: %v", err)
+		return err
+	}
+	
+	// 如果更改了code，检查新code是否已存在
+	if existing.Code != expression.Code {
+		var count int64
+		err := model.ReactionDB().Model(&model.ExpressionType{}).
+			Where("code = ? AND id != ?", expression.Code, expression.ID).
+			Count(&count).Error
+		
+		if err != nil {
+			log.Errorf("检查表情代码是否存在失败: %v", err)
+			return err
+		}
+		
+		if count > 0 {
+			log.Warnf("表情代码已存在: %s", expression.Code)
+			return fmt.Errorf("表情代码已存在")
+		}
+	}
+	
+	err = model.ReactionDB().Save(expression).Error
+	if err != nil {
+		log.Errorf("更新表情类型失败: %v", err)
+		return err
+	}
+	
+	log.Infof("更新表情类型成功: %d", expression.ID)
+	return nil
+}
+
+// DeleteExpressionType 删除表情类型
+func (s *ReactionService) DeleteExpressionType(id int) error {
+	log.Infof("删除表情类型: %d", id)
+	
+	err := model.ReactionDB().Delete(&model.ExpressionType{}, id).Error
+	if err != nil {
+		log.Errorf("删除表情类型失败: %v", err)
+		return err
+	}
+	
+	log.Infof("删除表情类型成功: %d", id)
+	return nil
+}
+
+// ToggleExpressionStatus 切换表情启用状态
+func (s *ReactionService) ToggleExpressionStatus(id int) (bool, error) {
+	log.Infof("切换表情状态: %d", id)
+	
+	var expression model.ExpressionType
+	err := model.ReactionDB().First(&expression, id).Error
+	if err != nil {
+		log.Errorf("查找表情类型失败: %v", err)
+		return false, err
+	}
+	
+	expression.IsActive = !expression.IsActive
+	err = model.ReactionDB().Save(&expression).Error
+	if err != nil {
+		log.Errorf("切换表情状态失败: %v", err)
+		return false, err
+	}
+	
+	log.Infof("切换表情状态成功: %d, 新状态: %v", id, expression.IsActive)
+	return expression.IsActive, nil
+}
+
+// CheckExpressionInUse 检查表情是否被使用
+func (s *ReactionService) CheckExpressionInUse(expressionId int) (bool, error) {
+	log.Infof("检查表情是否被使用: %d", expressionId)
+	
+	// 先获取表情代码
+	var expression model.ExpressionType
+	err := model.ReactionDB().First(&expression, expressionId).Error
+	if err != nil {
+		log.Errorf("查找表情类型失败: %v", err)
+		return false, err
+	}
+	
+	// 检查是否有使用该表情代码的回复
+	var count int64
+	err = model.ReactionDB().Model(&model.Reaction{}).
+		Where("reaction_type = ?", expression.Code).
+		Count(&count).Error
+	
+	if err != nil {
+		log.Errorf("检查表情使用状态失败: %v", err)
+		return false, err
+	}
+	
+	inUse := count > 0
+	log.Infof("表情使用状态检查完成: %d, 是否被使用: %v", expressionId, inUse)
+	return inUse, nil
 }
