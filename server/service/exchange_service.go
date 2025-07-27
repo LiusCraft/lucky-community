@@ -369,45 +369,28 @@ func (s *ExchangeService) UpdateProduct(productID int64, name, description strin
 		return fmt.Errorf("无效的商品ID")
 	}
 	
-	// 创建更新映射，只更新非零值
-	updates := make(map[string]interface{})
+	// 直接创建要更新的结构体，前端传什么就是什么
+	product := &model.PointProduct{
+		ID:          productID,
+		Name:        name,
+		Description: description,
+		PricePoints: pointsCost,
+		RewardType:  rewardType,
+		Stock:       stock,
+		SortOrder:   sortOrder,
+	}
 	
-	if name != "" {
-		updates["name"] = name
-	}
-	if description != "" {
-		updates["description"] = description  
-	}
-	if pointsCost > 0 {
-		updates["price_points"] = pointsCost
-	}
-	if rewardType != "" {
-		updates["reward_type"] = rewardType
-	}
-	if rewardValue != "" {
-		updates["reward_value"] = rewardValue
-	}
-	if stock >= -1 && !(name == "" && description == "" && pointsCost == 0 && rewardType == "" && rewardValue == "" && sortOrder == 0) {
-		updates["stock"] = stock
-	}
-	if sortOrder >= 0 && !(name == "" && description == "" && pointsCost == 0 && rewardType == "" && rewardValue == "" && stock == 0) {
-		updates["sort_order"] = sortOrder
-	}
 	if isEnabled != nil {
 		if *isEnabled {
-			updates["status"] = model.ProductStatusActive
+			product.Status = model.ProductStatusActive
 		} else {
-			updates["status"] = model.ProductStatusInactive
+			product.Status = model.ProductStatusInactive
 		}
 	}
 	
-	// 如果没有字段需要更新，直接返回
-	if len(updates) == 0 {
-		return nil
-	}
-	
 	pointProductDao := s.getPointProductDao()
-	return pointProductDao.UpdateProductByID(productID, updates)
+	// 直接用GORM的Updates方法更新结构体
+	return pointProductDao.UpdateProduct(product)
 }
 
 // DeleteProduct 删除积分商品（物理删除）
