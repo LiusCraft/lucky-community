@@ -81,13 +81,13 @@ func (a *CommentsService) Comment(comment *model.Comments) error {
 	subscriptionService.Send(eventId, constant.NOTICE, comment.FromUserId, userId, b)
 	jsonBody, _ := json.Marshal(comment)
 	log.Infof("用户id: %d,发布评论: %s", comment.FromUserId, jsonBody)
-	
+
 	// 异步更新评论总结
 	go func() {
 		summaryService := NewCommentSummaryService(a.ctx)
 		summaryService.UpdateSummaryIfNeeded(comment.BusinessId, comment.TenantId)
 	}()
-	
+
 	return nil
 }
 
@@ -232,10 +232,10 @@ func (a *CommentsService) ListCommentsByArticleIdNoTree(businessId, tenantId int
 
 	model.Comment().Where("business_id = ? and tenant_id = ? ", businessId, tenantId).Order("created_at desc").Find(&comments)
 	setCommentUserInfoAndArticleTitle(comments)
-	
+
 	// 添加表情统计信息
 	a.setCommentReactions(comments, currentUserId)
-	
+
 	return comments
 }
 
@@ -368,37 +368,29 @@ func setLatestCommentsInfo(comments []*model.Comments) {
 
 // setCommentReactions 为评论设置表情统计信息
 func (a *CommentsService) setCommentReactions(comments []*model.Comments, currentUserId int) {
-	log.Infof("开始设置评论表情统计，评论数量: %d, 当前用户ID: %d", len(comments), currentUserId)
 	if len(comments) == 0 {
-		log.Infof("评论数量为0，跳过表情统计设置")
 		return
 	}
-	
+
 	// 收集所有评论ID
 	commentIds := make([]int, len(comments))
 	for i, comment := range comments {
 		commentIds[i] = comment.ID
 	}
-	log.Infof("收集到评论ID列表: %v", commentIds)
-	
+
 	// 批量获取表情统计（使用通用表情系统）
 	reactionService := NewReactionService(a.ctx)
 	universalReactionMap, err := reactionService.GetReactionSummaryBatch(model.BusinessTypeComment, commentIds, currentUserId)
 	if err != nil {
-		log.Errorf("获取评论表情统计失败: %v", err)
 		return
 	}
-	log.Infof("获取到表情统计数据，包含 %d 个评论的表情信息", len(universalReactionMap))
-	
+
 	// 设置表情统计
 	for _, comment := range comments {
 		if reactions, exists := universalReactionMap[comment.ID]; exists {
 			comment.Reactions = reactions
-			log.Infof("评论ID %d 设置表情统计: %d 个表情", comment.ID, len(reactions))
 		} else {
 			comment.Reactions = []model.ReactionSummary{}
-			log.Infof("评论ID %d 没有表情统计数据", comment.ID)
 		}
 	}
-	log.Infof("完成评论表情统计设置")
 }

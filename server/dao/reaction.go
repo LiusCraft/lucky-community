@@ -137,9 +137,7 @@ func (d *ReactionDao) GetReactionSummaryByBusiness(businessType, businessId int,
 
 // GetReactionSummaryByBusinessBatch 批量获取多个业务的表情统计
 func (d *ReactionDao) GetReactionSummaryByBusinessBatch(businessType int, businessIds []int, currentUserId int) (map[int][]model.ReactionSummary, error) {
-	log.Infof("DAO层批量获取表情统计，业务类型: %d, 业务ID: %v, 当前用户ID: %d", businessType, businessIds, currentUserId)
 	if len(businessIds) == 0 {
-		log.Infof("业务ID列表为空，返回空结果")
 		return make(map[int][]model.ReactionSummary), nil
 	}
 
@@ -175,13 +173,10 @@ func (d *ReactionDao) GetReactionSummaryByBusinessBatch(businessType int, busine
 		ORDER BY r.business_id, r.reaction_type
 	`
 
-	log.Infof("执行批量查询SQL")
 	err := model.ReactionDB().Raw(query, currentUserId, businessType, businessIds, businessType, businessIds).Scan(&tempSummaries).Error
 	if err != nil {
-		log.Errorf("批量查询表情统计失败: %v", err)
 		return nil, err
 	}
-	log.Infof("批量查询表情统计成功，获得 %d 条记录", len(tempSummaries))
 
 	// 批量获取所有用户信息
 	type UserReactionInfo struct {
@@ -206,12 +201,10 @@ func (d *ReactionDao) GetReactionSummaryByBusinessBatch(businessType int, busine
 		ORDER BY r.business_id, r.reaction_type, r.created_at ASC
 	`
 
-	log.Infof("执行用户信息查询SQL")
 	err = model.ReactionDB().Raw(userQuery, businessType, businessIds).Scan(&userReactions).Error
 	if err != nil {
 		log.Errorf("批量获取表情用户信息失败: %v", err)
 	}
-	log.Infof("批量获取用户信息成功，获得 %d 条记录", len(userReactions))
 
 	// 组织用户信息到map中
 	userMap := make(map[string][]model.ReactionUser)
@@ -223,7 +216,6 @@ func (d *ReactionDao) GetReactionSummaryByBusinessBatch(businessType int, busine
 			UserAvatar: ur.UserAvatar,
 		})
 	}
-	log.Infof("组织用户信息到map，包含 %d 个键", len(userMap))
 
 	// 转换为最终结果格式
 	var summaries []model.ReactionSummary
@@ -251,7 +243,6 @@ func (d *ReactionDao) GetReactionSummaryByBusinessBatch(businessType int, busine
 		result[summary.BusinessId] = append(result[summary.BusinessId], summary)
 	}
 
-	log.Infof("DAO层批量获取表情统计完成，返回 %d 个业务的统计信息", len(result))
 	return result, nil
 }
 
