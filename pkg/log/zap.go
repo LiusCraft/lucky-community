@@ -25,8 +25,8 @@ setLoggerWrite 设置logger写入文件
 func setLoggerWrite() zapcore.WriteSyncer {
 	l := &lumberjack.Logger{
 		Filename:   "./community_log/log.log", //Filename 是要写入日志的文件。
-		MaxSize:    1,                         //MaxSize 是日志文件在轮换之前的最大大小（以兆字节为单位）。它默认为 100 兆字节
-		MaxBackups: 1,                         //MaxBackups 是要保留的最大旧日志文件数。默认是保留所有旧的日志文件（尽管 MaxAge 可能仍会导致它们被删除。）
+		MaxSize:    10,                        //MaxSize 是日志文件在轮换之前的最大大小（以兆字节为单位）。它默认为 100 兆字节
+		MaxBackups: 30,                        //MaxBackups 是要保留的最大旧日志文件数。默认是保留所有旧的日志文件（尽管 MaxAge 可能仍会导致它们被删除。）
 		MaxAge:     30,                        //MaxAge 是根据文件名中编码的时间戳保留旧日志文件的最大天数。
 		Compress:   true,                      //压缩
 		LocalTime:  true,                      //LocalTime 确定用于格式化备份文件中的时间戳的时间是否是计算机的本地时间。默认是使用 UTC 时间。
