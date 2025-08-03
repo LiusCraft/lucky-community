@@ -8,6 +8,7 @@ import (
 	"xhyovo.cn/community/pkg/constant"
 	"xhyovo.cn/community/pkg/log"
 	"xhyovo.cn/community/pkg/result"
+	"xhyovo.cn/community/pkg/utils"
 	"xhyovo.cn/community/server/model"
 	services "xhyovo.cn/community/server/service"
 )
@@ -124,6 +125,21 @@ func GitHubCallback(c *gin.Context) {
 			return
 		}
 
+		// 注册设备会话
+		var deviceService services.OnlineDeviceService
+		sessionID := deviceService.GenerateSessionID(token)
+		deviceInfo := c.Request.UserAgent()
+		ipAddress := utils.GetClientIP(c)
+
+		if err := deviceService.RegisterDevice(existingUser.ID, sessionID, deviceInfo, ipAddress); err != nil {
+			log.Error("设备注册失败: " + err.Error())
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   true,
+				"message": "登录失败: " + err.Error(),
+			})
+			return
+		}
+
 		log.Info("GitHub用户 " + githubUser.Login + " 登录成功")
 
 		// 设置认证 cookie
@@ -230,6 +246,18 @@ func GitHubActivate(c *gin.Context) {
 		if err != nil {
 			log.Error("生成JWT token失败: " + err.Error())
 			result.Err("登录失败").Json(c)
+			return
+		}
+
+		// 注册设备会话
+		var deviceService services.OnlineDeviceService
+		sessionID := deviceService.GenerateSessionID(token)
+		deviceInfo := c.Request.UserAgent()
+		ipAddress := utils.GetClientIP(c)
+
+		if err := deviceService.RegisterDevice(existingUser.ID, sessionID, deviceInfo, ipAddress); err != nil {
+			log.Error("设备注册失败: " + err.Error())
+			result.Err("登录失败: " + err.Error()).Json(c)
 			return
 		}
 
