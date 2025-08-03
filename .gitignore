@@ -29,7 +29,8 @@ dist-ssr
 *.sw?
 *.exe
 build
-community_log/
 # 可执行文件
 cmd/community/community
 community
+community_log
+.zed

@@ -70,6 +70,19 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// 注册设备会话
+	var deviceService services.OnlineDeviceService
+	sessionID := deviceService.GenerateSessionID(token)
+	deviceInfo := c.Request.UserAgent()
+	ipAddress := utils.GetClientIP(c)
+
+	if err := deviceService.RegisterDevice(user.ID, sessionID, deviceInfo, ipAddress); err != nil {
+		loginLog.State = "设备注册失败: " + err.Error()
+		logS.InsertLoginLog(loginLog)
+		result.Err("登录失败: " + err.Error()).Json(c)
+		return
+	}
+
 	c.SetCookie(middleware.AUTHORIZATION, token, int(constant.Token_TTl.Seconds()), "/", c.Request.Host, false, true)
 	loginLog.State = "登录成功"
 	logS.InsertLoginLog(loginLog)
@@ -118,6 +131,20 @@ func Register(c *gin.Context) {
 		result.Err(err.Error()).Json(c)
 		return
 	}
+
+	// 注册设备会话
+	var deviceService services.OnlineDeviceService
+	sessionID := deviceService.GenerateSessionID(token)
+	deviceInfo := c.Request.UserAgent()
+	ipAddress := utils.GetClientIP(c)
+
+	if err := deviceService.RegisterDevice(id, sessionID, deviceInfo, ipAddress); err != nil {
+		loginLog.State = "设备注册失败: " + err.Error()
+		logS.InsertLoginLog(loginLog)
+		result.Err("注册失败: " + err.Error()).Json(c)
+		return
+	}
+
 	c.SetCookie(middleware.AUTHORIZATION, token, int(constant.Token_TTl.Seconds()), "/", c.Request.Host, false, true)
 
 	result.OkWithMsg(map[string]string{"token": token}, "注册成功").Json(c)

@@ -1,11 +1,14 @@
 package middleware
 
 import (
+	"crypto/md5"
 	"errors"
+	"fmt"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/spf13/viper"
-	"time"
 	"xhyovo.cn/community/pkg/constant"
 	"xhyovo.cn/community/pkg/result"
 	services "xhyovo.cn/community/server/service"
@@ -45,10 +48,11 @@ func Auth(ctx *gin.Context) {
 
 	var blackService = services.BlacklistService{}
 
-	// 判断token 黑名单
-	exist := blackService.ExistToken(token)
+	// 判断token 黑名单，使用sessionID（token的MD5哈希）检查
+	sessionID := generateSessionID(token)
+	exist := blackService.ExistToken(sessionID)
 	if exist {
-		result.Err("你已涉嫌违规社区文化，token 失效，请重新登陆").Json(ctx)
+		result.Err("你已涉嫌违规社帐号管理规则，请重新登陆").Json(ctx)
 		ctx.Abort()
 		return
 	}
@@ -112,4 +116,10 @@ func ParseToken(tokenStr string) (JwtCustomClaims, error) {
 		err = errors.New("invalid Token")
 	}
 	return iJwtCustomClaims, err
+}
+
+// generateSessionID 生成会话ID（基于token的哈希）
+func generateSessionID(token string) string {
+	hash := md5.Sum([]byte(token))
+	return fmt.Sprintf("%x", hash)
 }

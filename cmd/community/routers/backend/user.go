@@ -22,10 +22,13 @@ func InitUserRouters(r *gin.Engine) {
 	group := r.Group("/community/admin/user")
 	group.GET("", listUser)
 	group.GET("/black", blackListUser)
+	group.GET("/:id/devices", getUserDevices)
 	group.Use(middleware.OperLogger())
 	group.POST("", updateUser)
 	group.DELETE("/:id", deleteUser)
 	group.PUT("/reset/pwd", setRangePassword)
+	group.PUT("/:id/max-devices", setUserMaxDevices)
+	group.DELETE("/:id/devices/:sessionId", adminKickDevice)
 
 	group.DELETE("/black/ban", banUser)
 	group.POST("/black/unBan", unBanUser)
@@ -138,4 +141,75 @@ func unBanUser(ctx *gin.Context) {
 	cache.Delete(constant.BLACK_LIST_COUNT + id)
 
 	result.OkWithMsg(nil, "已解封用户："+id).Json(ctx)
+}
+
+// getUserDevices 管理员查看用户在线设备
+func getUserDevices(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		result.Err("用户ID格式错误").Json(ctx)
+		return
+	}
+
+	var deviceService services.OnlineDeviceService
+	devices := deviceService.GetUserOnlineDevices(id)
+	maxDevices := deviceService.GetUserMaxDevices(id)
+
+	result.Ok(map[string]interface{}{
+		"userId":     id,
+		"devices":    devices,
+		"maxDevices": maxDevices,
+		"current":    len(devices),
+	}, "").Json(ctx)
+}
+
+// setUserMaxDevices 管理员设置用户最大设备数
+func setUserMaxDevices(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		result.Err("用户ID格式错误").Json(ctx)
+		return
+	}
+
+	var req struct {
+		MaxDevices int `json:"maxDevices" binding:"required,min=1,max=999"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		result.Err("参数错误: " + err.Error()).Json(ctx)
+		return
+	}
+
+	var deviceService services.OnlineDeviceService
+	if err := deviceService.SetUserMaxDevices(id, req.MaxDevices); err != nil {
+		result.Err("设置失败: " + err.Error()).Json(ctx)
+		return
+	}
+
+	log.Infof("管理员设置用户 %d 最大设备数为 %d", id, req.MaxDevices)
+	result.Ok(nil, "设置成功").Json(ctx)
+}
+
+// adminKickDevice 管理员踢出用户设备
+func adminKickDevice(ctx *gin.Context) {
+	userId, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		result.Err("用户ID格式错误").Json(ctx)
+		return
+	}
+
+	sessionId := ctx.Param("sessionId")
+	if sessionId == "" {
+		result.Err("会话ID不能为空").Json(ctx)
+		return
+	}
+
+	var deviceService services.OnlineDeviceService
+	if err := deviceService.KickDevice(userId, sessionId); err != nil {
+		result.Err("踢出设备失败: " + err.Error()).Json(ctx)
+		return
+	}
+
+	log.Infof("管理员踢出用户 %d 的设备 %s", userId, sessionId)
+	result.Ok(nil, "设备已踢出").Json(ctx)
 }

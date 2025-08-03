@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"strconv"
+
 	"xhyovo.cn/community/pkg/cache"
 	"xhyovo.cn/community/pkg/constant"
 	"xhyovo.cn/community/pkg/utils/page"
@@ -44,6 +45,8 @@ func InitUserRouters(r *gin.Engine) {
 	group.GET("/active", activeUsers)
 	group.GET("/all", listAllUsers)
 	group.GET("/heart", heart)
+	group.GET("/devices", getOnlineDevices)
+	group.DELETE("/devices/:sessionId", kickDevice)
 	group.Use(middleware.OperLogger())
 	group.POST("/edit/:tab", updateUser)
 }
@@ -193,29 +196,86 @@ func heart(ctx *gin.Context) {
 	userId := middleware.GetUserId(ctx)
 	// 获取ip
 	ip := utils.GetClientIP(ctx)
-	cache := cache.GetInstance()
 	token := ctx.GetHeader(middleware.AUTHORIZATION)
 	if len(token) == 0 {
 		token, _ = ctx.Cookie(middleware.AUTHORIZATION)
 	}
+
+	// 使用新的设备管理服务
+	var deviceService services.OnlineDeviceService
+	sessionID := deviceService.GenerateSessionID(token)
+
+	// 检查会话是否有效
+	if !deviceService.IsSessionValid(sessionID) {
+		result.Err("会话已失效，请重新登录").Json(ctx)
+		return
+	}
+
+	// 更新心跳时间
+	if err := deviceService.UpdateHeartbeat(sessionID, ip); err != nil {
+		result.Err("心跳更新失败").Json(ctx)
+		return
+	}
+
+	// 保持原有的缓存机制作为备用检查
+	cache := cache.GetInstance()
 	key := constant.HEARTBEAT + strconv.Itoa(userId)
 	valueIp, b := cache.Get(key)
+
 	// ip 不一致则说明同一时间内多个用户使用一个账号
 	if b {
 		if valueIp != ip {
 			// 将 token 设置为无效并且清空用户登陆状态并且加入黑名单中
-			// 1.前端清空 store
-			// 2.后端将 token 存入黑名单
-			// 3.对黑名单进行计数：可能用户不服
 			var blackService = services.BlacklistService{}
 			blackService.Add(userId, token)
 			blackService.AddBlackByToken(token)
-			result.Err("你已涉嫌同一账号多人使用，请注意你的行为").Json(ctx)
+
+			// 踢出该设备
+			if err := deviceService.KickDevice(userId, sessionID); err != nil {
+				log.Error("踢出设备失败: " + err.Error())
+			}
+
+			result.Err("检测到异常登录行为，已强制下线").Json(ctx)
 			return
 		}
 	} else {
 		cache.Set(key, ip, constant.HEARTBEAT_TTL)
 	}
+
 	result.Ok(nil, "").Json(ctx)
 	return
+}
+
+// getOnlineDevices 获取用户在线设备列表
+func getOnlineDevices(ctx *gin.Context) {
+	userId := middleware.GetUserId(ctx)
+
+	var deviceService services.OnlineDeviceService
+	devices := deviceService.GetUserOnlineDevices(userId)
+	maxDevices := deviceService.GetUserMaxDevices(userId)
+
+	result.Ok(map[string]interface{}{
+		"devices":    devices,
+		"maxDevices": maxDevices,
+		"current":    len(devices),
+	}, "").Json(ctx)
+}
+
+// kickDevice 踢出指定设备
+func kickDevice(ctx *gin.Context) {
+	userId := middleware.GetUserId(ctx)
+	sessionId := ctx.Param("sessionId")
+
+	if sessionId == "" {
+		result.Err("会话ID不能为空").Json(ctx)
+		return
+	}
+
+	var deviceService services.OnlineDeviceService
+	if err := deviceService.KickDevice(userId, sessionId); err != nil {
+		result.Err("踢出设备失败: " + err.Error()).Json(ctx)
+		return
+	}
+
+	result.Ok(nil, "设备已踢出").Json(ctx)
 }
