@@ -219,10 +219,10 @@ func heart(ctx *gin.Context) {
 
 	// 保持原有的缓存机制作为备用检查
 	cache := cache.GetInstance()
-	key := constant.HEARTBEAT + strconv.Itoa(userId)
+	key := constant.HEARTBEAT + sessionID
 	valueIp, b := cache.Get(key)
 
-	// ip 不一致则说明同一时间内多个用户使用一个账号
+	// ip 不一致则说明同一时间内多个设备使用一个账号的sessionId
 	if b {
 		if valueIp != ip {
 			// 将 token 设置为无效并且清空用户登陆状态并且加入黑名单中
@@ -243,7 +243,6 @@ func heart(ctx *gin.Context) {
 	}
 
 	result.Ok(nil, "").Json(ctx)
-	return
 }
 
 // getOnlineDevices 获取用户在线设备列表
